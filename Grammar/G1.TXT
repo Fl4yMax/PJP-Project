@@ -1,0 +1,11 @@
+{Testing grammar}
+S : A B C;
+A : X Y | X Z | W;
+B : X Y Z | X Z W | V;
+C : W V U;
+X : x | y | z;
+Y : a | b | c;
+Z : 1 | 2 | 3;
+W : m | n | o;
+V : p | q | r;
+U : s | t | u;
