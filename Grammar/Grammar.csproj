@@ -16,12 +16,6 @@
     <PackageReference Include="Antlr4BuildTasks" Version="12.8.0" />
   </ItemGroup>
 
-  <ItemGroup>
-    <None Update="G1.TXT">
-      <CopyToOutputDirectory>PreserveNewest</CopyToOutputDirectory>
-    </None>
-  </ItemGroup>
-
 	<ItemGroup>
 		<Antlr4 Include="TurboJanguage.g4">
 			<Listener>true</Listener>

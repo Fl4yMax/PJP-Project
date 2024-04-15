@@ -54,6 +54,7 @@ namespace Lab3
             TurboJanguageLexer lexer = new TurboJanguageLexer(input);
             CommonTokenStream tokens = new CommonTokenStream(lexer);
             TurboJanguageParser parser = new TurboJanguageParser(tokens);
+            InstructionSetListener instructionCreator = new();
 
             parser.AddErrorListener(new VerboseListener());
 
@@ -63,9 +64,20 @@ namespace Lab3
             {
                 //Console.WriteLine(tree.ToStringTree(parser));
                 ParseTreeWalker walker = new ParseTreeWalker();
-                walker.Walk(new GrammarListener(), tree);
+                GrammarListener gListen = new GrammarListener();
+                walker.Walk(gListen, tree);
 
-                //new EvalVisitor().Visit(tree);
+                if(!gListen.IsError())
+                {
+                    ParseTreeWalker walkerInstructions = new ParseTreeWalker();
+                    
+                    walkerInstructions.Walk(instructionCreator, tree);
+                    fileName = "TurboJanguageInstr.txt";
+                    using var fileStream = File.Create(fileName);
+                    using var outputFile = new StreamWriter(fileStream);
+                    outputFile.Write(string.Join('\n', instructionCreator.Instructions));
+                    instructionCreator.printStack();
+                }
             }
         }
 	}

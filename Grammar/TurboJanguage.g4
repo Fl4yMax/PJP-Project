@@ -44,13 +44,17 @@ CONCAT : '.';
 program : statement+ EOF;
 
 statement : declaration SEMI
-     | 'read' variable_list SEMI
-     | 'write' expression (COMMA expression)* SEMI
+     | read_statement
+     | write_statement
      | (expression)? SEMI
      | block
      | if_statement
      | while_statement
      | do_while_statement;
+
+write_statement : 'write' expression (COMMA expression)* SEMI;
+
+read_statement : 'read' variable_list SEMI;
 
 declaration : type variable_list;
 
@@ -66,17 +70,19 @@ do_while_statement : 'do' statement 'while' LPAR expression RPAR SEMI;
 
 expression : primary_expression
              | unary_expression
-             | calculation_expression
-             | assignment_expression;
-
-operator: PLUS | MINUS | DIV | MULT | MOD | CONCAT | AND | OR | EQUAL | NOT_EQUAL | LESS_THAN | GREATER_THAN;
-
-calculation_expression : primary_expression (operator primary_expression)*;
+             | assignment_expression
+             | expression operator=(MULT | DIV) expression
+             | expression operator=(PLUS | MINUS) expression
+             | expression operator=MOD expression
+             | expression operator=AND expression
+             | expression operator=OR expression
+             | expression operator=CONCAT expression
+             | expression operator=(EQUAL | NOT_EQUAL | LESS_THAN | GREATER_THAN) expression;
 
 assignment_expression : IDENTIFIER ASSIGN expression;
 
-unary_expression : LOGICAL_NOT primary_expression
-                 | MINUS primary_expression;
+unary_expression : LOGICAL_NOT expression
+                 | MINUS expression;
 
 primary_expression : literal
                    | IDENTIFIER

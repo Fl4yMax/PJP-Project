@@ -3,6 +3,7 @@ using Antlr4.Runtime.Misc;
 using System;
 using System.Collections.Generic;
 using System.Linq;
+using System.Reflection.Metadata.Ecma335;
 using System.Text;
 using System.Threading.Tasks;
 using System.Xml.Linq;
@@ -12,9 +13,8 @@ namespace Lab3
 {
     public class GrammarListener : TurboJanguageBaseListener
     {
-
-        public bool IsError { get; private set; } = false;
         private readonly Dictionary<string, MyType> _symbolTable = new();
+        private readonly Dictionary<string, MyType> _scopeSymbolTable = new();
         public HashSet<string> Errors { get; } = new();
 
         public override void EnterEveryRule([NotNull] ParserRuleContext context)
@@ -111,6 +111,10 @@ namespace Lab3
                     Console.WriteLine($"Error: Variable '{name}' hasn't been declared.");
                 }
             }
+            else if(prim_ctx.expression() is TurboJanguageParser.ExpressionContext expr_ctx) 
+            {
+                    return ProcessExpression(expr_ctx);
+            }
 
             return MyType.UNKNOWN;
         }
@@ -118,9 +122,9 @@ namespace Lab3
         public MyType ProcessUnaryExpression(TurboJanguageParser.Unary_expressionContext unary_ctx)
         {
             MyType currentType = MyType.UNKNOWN;
-            if (unary_ctx.primary_expression() is TurboJanguageParser.Primary_expressionContext prim_ctx)
+            if (unary_ctx.expression() is TurboJanguageParser.ExpressionContext expr_ctx)
             {
-                currentType = ProcessPrimaryExpression(prim_ctx);
+                currentType = ProcessExpression(expr_ctx);
                 if (unary_ctx.LOGICAL_NOT() is not null)
                 {
                     if (currentType == MyType.BOOL)
@@ -150,63 +154,37 @@ namespace Lab3
         }
         public MyType ProcessExpression(TurboJanguageParser.ExpressionContext expr_ctx)
         {
-            MyType currentType = MyType.UNKNOWN;
             if (expr_ctx.primary_expression() is TurboJanguageParser.Primary_expressionContext prim_ctx)
             {
                 return ProcessPrimaryExpression(prim_ctx);
             }
             else if (expr_ctx.unary_expression() is TurboJanguageParser.Unary_expressionContext unary_ctx)
             {
-                currentType = ProcessUnaryExpression(unary_ctx);
-                MyType primaryType = ProcessPrimaryExpression(unary_ctx.primary_expression());
-                if (currentType == MyType.FLOAT && primaryType == MyType.INT || currentType == MyType.INT && primaryType == MyType.FLOAT)
-                {
-                    return MyType.FLOAT;
-                }
-                else if (currentType == primaryType)
-                {
-                    return currentType;
-                }
-            }
-            else if (expr_ctx.calculation_expression() is TurboJanguageParser.Calculation_expressionContext calc_ctx)
-            {
-                return ProcessCalculationExpression(calc_ctx);
+                return ProcessUnaryExpression(unary_ctx);
             }
             else if (expr_ctx.assignment_expression() is TurboJanguageParser.Assignment_expressionContext assign_ctx)
             {
                 return ProcessAssignmentExpression(assign_ctx);
             }
-
-            return MyType.UNKNOWN;
-        }
-
-        public MyType ProcessCalculationExpression(TurboJanguageParser.Calculation_expressionContext calc_ctx)
-        {
-            MyType typeA = MyType.UNKNOWN;
-            MyType typeB = MyType.UNKNOWN;
-            MyType result = MyType.UNKNOWN;
-
-            TurboJanguageParser.Primary_expressionContext[] prim_ctxs = calc_ctx.primary_expression();
-            TurboJanguageParser.OperatorContext[] op_ctxs = calc_ctx.@operator();
-
-            if(prim_ctxs.Length == 1) { return ProcessPrimaryExpression(prim_ctxs[0]); }
             else
             {
-                typeA = ProcessPrimaryExpression(prim_ctxs[0]);
-                for (int i = 0; i < op_ctxs.Length; i++)
+
+                MyType typeA = ProcessExpression(expr_ctx.expression(0));
+                for(int i = 1; i < expr_ctx.expression().Length; i++)
                 {
-                    typeB = ProcessPrimaryExpression(prim_ctxs[i + 1]);
-                    result = ProcessOperator(typeA, typeB, op_ctxs[i]);
+                    MyType typeB = ProcessExpression(expr_ctx.expression(i));
+                    string op = expr_ctx.@operator.Text;
+                    typeA = ProcessOperator(typeA, typeB, op);
                 }
-            }
+                if(typeA == MyType.UNKNOWN)
+                {
+                    Errors.Add($"Type mismatch got {typeA}.");
+                    Console.WriteLine($"Type mismatch got {typeA}.");
+                }
 
-            if(result == MyType.UNKNOWN)
-            {
-                Errors.Add($"Type mismatch got '{result}' expected {typeA}.");
-                Console.WriteLine($"Type mismatch got '{result}' expected {typeA}.");
+                
+                return typeA;
             }
-
-            return result;
         }
 
         public MyType ProcessAssignmentExpression(TurboJanguageParser.Assignment_expressionContext assign_ctx)
@@ -216,9 +194,9 @@ namespace Lab3
                 string name = assign_ctx.IDENTIFIER().GetText();
                 if (_symbolTable.TryGetValue(name, out MyType type))
                 {
-                    if(assign_ctx.expression() is TurboJanguageParser.ExpressionContext)
+                    if(assign_ctx.expression() is TurboJanguageParser.ExpressionContext expr)
                     {
-                        MyType result = ProcessExpression(assign_ctx.expression());
+                        MyType result = ProcessExpression(expr);
                         if(type == MyType.FLOAT && (result == MyType.INT || result == MyType.FLOAT))
                         {
                             return type;
@@ -243,8 +221,9 @@ namespace Lab3
             return MyType.UNKNOWN;
         }
 
-        private MyType ProcessOperator(MyType A, MyType B, TurboJanguageParser.OperatorContext op_ctx) => op_ctx.GetText() switch
+        private MyType ProcessOperator(MyType A, MyType B, string op) => op switch
         {
+
             "+" when A is MyType.INT && B is MyType.INT => MyType.INT,
             "+" when A is MyType.FLOAT && (B is MyType.INT || B is MyType.FLOAT) => MyType.FLOAT,
             "+" when A is MyType.INT && B is MyType.FLOAT => MyType.FLOAT,
@@ -264,9 +243,22 @@ namespace Lab3
             "%" when A is MyType.INT && B is MyType.INT => MyType.INT,
 
             "&&" when A is MyType.BOOL && B is MyType.BOOL => MyType.BOOL,
+
             "||" when A is MyType.BOOL && B is MyType.BOOL => MyType.BOOL,
-            "==" when A is not MyType.BOOL && B is not MyType.BOOL => MyType.BOOL,
-            "!=" when A is not MyType.BOOL && B is not MyType.BOOL => MyType.BOOL,
+
+            "==" when A is MyType.BOOL && B is MyType.BOOL => MyType.BOOL,
+            "==" when A is MyType.STRING && B is MyType.STRING => MyType.BOOL,
+            "==" when A is MyType.INT && B is MyType.INT => MyType.BOOL,
+            "==" when A is MyType.FLOAT && B is MyType.FLOAT => MyType.BOOL,
+            "==" when A is MyType.FLOAT && B is MyType.INT => MyType.BOOL,
+            "==" when A is MyType.INT && B is MyType.FLOAT => MyType.BOOL,
+
+            "!=" when A is MyType.BOOL && B is MyType.BOOL => MyType.BOOL,
+            "!=" when A is MyType.FLOAT && B is MyType.FLOAT => MyType.BOOL,
+            "!=" when A is MyType.INT && B is MyType.INT => MyType.BOOL,
+            "!=" when A is MyType.STRING && B is MyType.STRING => MyType.BOOL,
+            "!=" when A is MyType.FLOAT && B is MyType.INT => MyType.BOOL,
+            "!=" when A is MyType.INT && B is MyType.FLOAT => MyType.BOOL,
 
             "<" when (A is MyType.FLOAT || A is MyType.INT) && (B is MyType.INT || B is MyType.FLOAT) => MyType.BOOL,
             "<" when A is MyType.BOOL && B is MyType.BOOL => MyType.BOOL,
@@ -284,5 +276,14 @@ namespace Lab3
             "bool" => MyType.BOOL,
             _ => MyType.UNKNOWN,
         };
+
+        public bool IsError()
+        {
+            if(Errors.Count > 0)
+            {
+                return true;
+            }
+            return false;
+        }
     }
 }
