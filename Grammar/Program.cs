@@ -47,7 +47,7 @@ namespace Lab3
             //}
 
             Thread.CurrentThread.CurrentCulture = new CultureInfo("en-US");
-            var fileName = "C:\\Users\\gabri\\Desktop\\Programming\\PJP\\C#\\Grammar\\Grammar\\Input2.txt";
+            var fileName = "C:\\Users\\gabri\\Desktop\\Programming\\PJP\\C#\\Grammar\\Grammar\\text.txt";
             Console.WriteLine("Parsing: " + fileName);
             var inputFile = new StreamReader(fileName);
             AntlrInputStream input = new AntlrInputStream(inputFile);

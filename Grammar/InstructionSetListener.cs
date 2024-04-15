@@ -79,6 +79,10 @@ namespace Lab3
                     Instructions.Add($"label {counter}");
                 }
             }
+            if(context.expression() is not null)
+            {
+                Instructions.Add("pop");
+            }
         }
 
         public override void ExitIf_statement([NotNull] TurboJanguageParser.If_statementContext context)
@@ -105,7 +109,6 @@ namespace Lab3
             else if (expr_ctx.assignment_expression() is TurboJanguageParser.Assignment_expressionContext assign_ctx)
             {
                 type = EvaluateAssignExpr(assign_ctx);
-
             }
             else
             {
@@ -115,27 +118,30 @@ namespace Lab3
 
                 if (type is MyType.INT && typeB is MyType.FLOAT)
                 {
+                    type = MyType.FLOAT;
                     Instructions.Insert(Instructions.Count - 1, "itof");
                 }
                 if (type is MyType.FLOAT && typeB is MyType.INT)
                 {
+                    type = MyType.FLOAT;
                     Instructions.Add("itof");
                 }
                     
+                string t = ConvertType(type);
 
                 switch (op)
                 {
                     case "*":
-                        Instructions.Add("mul");
+                        Instructions.Add($"mul {t}");
                         break;
                     case "/":
-                        Instructions.Add("div");
+                        Instructions.Add($"div {t}");
                         break;
                     case "+":
-                        Instructions.Add("add");
+                        Instructions.Add($"add {t}");
                         break;
                     case "-":
-                        Instructions.Add("sub");
+                        Instructions.Add($"sub {t}");
                         break;
                     case "&&":
                         Instructions.Add("and");
