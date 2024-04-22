@@ -1,4 +1,5 @@
 ﻿using Antlr4.Runtime.Misc;
+using Antlr4.Runtime.Tree;
 using System;
 using System.Collections.Generic;
 using System.Diagnostics.Metrics;
@@ -16,6 +17,12 @@ namespace Lab3
         public List<string> Instructions { get; private set; } = [];
         private Stack<Dictionary<string, MyType>> _symbolTable = new();
         private int counter = 0;
+        private readonly ParseTreeProperty<MyType> types;
+
+        public InstructionSetListener(ParseTreeProperty<MyType> types)
+        {
+            this.types = types;
+        }
         public override void EnterStatement([NotNull] TurboJanguageParser.StatementContext context)
         {
             base.EnterStatement(context);
@@ -96,7 +103,7 @@ namespace Lab3
 
         public MyType EvaluateExpr(TurboJanguageParser.ExpressionContext expr_ctx)
         {
-            MyType type;
+            MyType type = MyType.UNKNOWN;
             MyType typeB;
             if (expr_ctx.primary_expression() is TurboJanguageParser.Primary_expressionContext prim_ctx)
             {
@@ -110,38 +117,66 @@ namespace Lab3
             {
                 type = EvaluateAssignExpr(assign_ctx);
             }
-            else
+            else if (expr_ctx.ChildCount == 3)
             {
-                type = EvaluateExpr(expr_ctx.expression(0));
-                typeB = EvaluateExpr(expr_ctx.expression(1));
+                type = types.Get(expr_ctx.expression(0));
+                typeB = types.Get(expr_ctx.expression(1));
+
+                Console.WriteLine("EXPR 0 "+ expr_ctx.expression(0).GetText());
+                Console.WriteLine("EXPR 1 " + expr_ctx.expression(1).GetText());
+
+                Console.WriteLine(type);
+                Console.WriteLine(typeB);
+                //46 34
+                MyType A = EvaluateExpr(expr_ctx.expression(0));
+                
                 string op = expr_ctx.@operator.Text;
 
-                if (type is MyType.INT && typeB is MyType.FLOAT)
+
+                if (type == MyType.INT && typeB == MyType.FLOAT)
                 {
-                    type = MyType.FLOAT;
-                    Instructions.Insert(Instructions.Count - 1, "itof");
-                }
-                if (type is MyType.FLOAT && typeB is MyType.INT)
-                {
-                    type = MyType.FLOAT;
                     Instructions.Add("itof");
                 }
-                    
+                MyType B = EvaluateExpr(expr_ctx.expression(1));
+                if (type == MyType.FLOAT && typeB == MyType.INT)
+                {
+                    Instructions.Add("itof");
+                }
+                //if (type == MyType.FLOAT && typeB == MyType.INT)
+                //{
+                //    Instructions.Add("itof");
+                //}
+                //if (type == MyType.INT && typeB == MyType.FLOAT)
+                //{
+                //    Instructions.Add("itof");
+               
+
+                //if (type is MyType.INT && typeB is MyType.FLOAT)
+                //{
+                //    type = MyType.FLOAT;
+                //    Instructions.Insert(Instructions.Count - 1, "itof");
+                //}
+                //if (type is MyType.FLOAT && typeB is MyType.INT)
+                //{
+                //    type = MyType.FLOAT;
+                //    Instructions.Add("itof");
+                //}
+
                 string t = ConvertType(type);
 
                 switch (op)
                 {
                     case "*":
-                        Instructions.Add($"mul {t}");
+                        Instructions.Add($"mul");
                         break;
                     case "/":
-                        Instructions.Add($"div {t}");
+                        Instructions.Add($"div");
                         break;
                     case "+":
-                        Instructions.Add($"add {t}");
+                        Instructions.Add($"add");
                         break;
                     case "-":
-                        Instructions.Add($"sub {t}");
+                        Instructions.Add($"sub");
                         break;
                     case "&&":
                         Instructions.Add("and");
@@ -177,10 +212,10 @@ namespace Lab3
         {
             base.ExitAssignment_expression(context);
 
-            if (context.expression().assignment_expression() is null)
-            {
-                Instructions.Add("pop");
-            }
+            //if (context.expression().assignment_expression() is null)
+            //{
+            //    Instructions.Add("pop");
+            //}
         }
         public override void EnterWhile_statement([NotNull] TurboJanguageParser.While_statementContext context)
         {
@@ -268,11 +303,15 @@ namespace Lab3
             {
                 
                 string ID = assign_ctx.IDENTIFIER().GetText();
-                t2 = EvaluateExpr(assign_ctx.expression());
+                t2 = types.Get(assign_ctx.expression());
+                MyType ts = EvaluateExpr(assign_ctx.expression());
                 _symbolTable.Peek().TryGetValue(ID, out t);
-                if (t == MyType.FLOAT && t2 == MyType.INT)
+                if (_symbolTable.Peek().TryGetValue(ID, out t))
                 {
-                    Instructions.Add("itof");
+                    if(t == MyType.FLOAT && t2 == MyType.INT)
+                    {
+                        Instructions.Add("itof");
+                    }
                 }
                 Instructions.Add($"save {ID}");
                 Instructions.Add($"load {ID}");
