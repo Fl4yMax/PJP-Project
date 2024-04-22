@@ -1,5 +1,6 @@
 ﻿using Antlr4.Runtime;
 using Antlr4.Runtime.Misc;
+using Antlr4.Runtime.Tree;
 using System;
 using System.Collections.Generic;
 using System.Linq;
@@ -15,6 +16,7 @@ namespace Lab3
     {
         private readonly Dictionary<string, MyType> _symbolTable = new();
         private readonly Dictionary<string, MyType> _scopeSymbolTable = new();
+        public ParseTreeProperty<MyType> types = new();
         public HashSet<string> Errors { get; } = new();
 
         public override void EnterEveryRule([NotNull] ParserRuleContext context)
@@ -61,6 +63,7 @@ namespace Lab3
                 if (!_symbolTable.ContainsKey(variableName))
                 {
                     _symbolTable.Add(variableName, type);
+                    types.Put(context, type);
                 }
                 else
                 {
@@ -79,22 +82,28 @@ namespace Lab3
 
         public MyType ProcessPrimaryExpression(TurboJanguageParser.Primary_expressionContext prim_ctx)
         {
+
             if (prim_ctx.literal() is TurboJanguageParser.LiteralContext lit_ctx)
             {
                 if (lit_ctx.BOOL_LITERAL() is not null)
                 {
+                    types.Put(prim_ctx, MyType.BOOL);
                     return MyType.BOOL;
+
                 }
                 else if (lit_ctx.INT_LITERAL() is not null)
                 {
+                    types.Put(prim_ctx, MyType.INT);
                     return MyType.INT;
                 }
                 else if (lit_ctx.FLOAT_LITERAL() is not null)
                 {
+                    types.Put(prim_ctx, MyType.FLOAT);
                     return MyType.FLOAT;
                 }
                 else
                 {
+                    types.Put(prim_ctx, MyType.STRING);
                     return MyType.STRING;
                 }
             }
@@ -103,6 +112,7 @@ namespace Lab3
                 string name = prim_ctx.IDENTIFIER().GetText();
                 if (_symbolTable.TryGetValue(name, out MyType type))
                 {
+                    types.Put(prim_ctx, type);
                     return type;
                 }
                 else
@@ -113,7 +123,9 @@ namespace Lab3
             }
             else if(prim_ctx.expression() is TurboJanguageParser.ExpressionContext expr_ctx) 
             {
-                    return ProcessExpression(expr_ctx);
+                MyType type = ProcessExpression(expr_ctx);
+                types.Put(expr_ctx, type);
+                return type;
             }
 
             return MyType.UNKNOWN;
@@ -129,6 +141,7 @@ namespace Lab3
                 {
                     if (currentType == MyType.BOOL)
                     {
+                        types.Put(unary_ctx, currentType);
                         return currentType;
                     }
                     else
@@ -141,6 +154,7 @@ namespace Lab3
                 {
                     if (currentType == MyType.INT || currentType == MyType.FLOAT)
                     {
+                        types.Put(unary_ctx, currentType);
                         return currentType;
                     }
                     else
@@ -170,20 +184,31 @@ namespace Lab3
             {
 
                 MyType typeA = ProcessExpression(expr_ctx.expression(0));
-                for(int i = 1; i < expr_ctx.expression().Length; i++)
+                types.Put(expr_ctx.expression(0), typeA);
+                MyType typeB = ProcessExpression(expr_ctx.expression(1));
+                MyType result = MyType.UNKNOWN;
+                Console.WriteLine("EXPR 0 " + expr_ctx.expression(0).GetText() + typeA);
+                Console.WriteLine("EXPR 1 " + expr_ctx.expression(1).GetText() + typeB);
+                types.Put(expr_ctx.expression(1), typeB);
+                string op = expr_ctx.@operator.Text;
+                result = ProcessOperator(typeA, typeB, op);
+                //types.Put(expr_ctx, result);
+                //for (int i = 1; i < expr_ctx.expression().Length; i++)
+                //{
+                //    MyType typeB = ProcessExpression(expr_ctx.expression(i));
+                //    types.Put(expr_ctx.expression(0), typeB);
+                //    string op = expr_ctx.@operator.Text;
+                //    typeA = ProcessOperator(typeA, typeB, op);
+                    
+                //}
+                if(result == MyType.UNKNOWN)
                 {
-                    MyType typeB = ProcessExpression(expr_ctx.expression(i));
-                    string op = expr_ctx.@operator.Text;
-                    typeA = ProcessOperator(typeA, typeB, op);
-                }
-                if(typeA == MyType.UNKNOWN)
-                {
-                    Errors.Add($"Type mismatch got {typeA}.");
-                    Console.WriteLine($"Type mismatch got {typeA}.");
+                    Errors.Add($"Type mismatch got {result}.");
+                    Console.WriteLine($"Type mismatch got {result}.");
                 }
 
                 
-                return typeA;
+                return result;
             }
         }
 
@@ -199,6 +224,7 @@ namespace Lab3
                         MyType result = ProcessExpression(expr);
                         if(type == MyType.FLOAT && (result == MyType.INT || result == MyType.FLOAT))
                         {
+                            types.Put(assign_ctx.expression(), result);
                             return type;
                         }
                         else if(type != result)
@@ -208,6 +234,8 @@ namespace Lab3
                         }
                         else
                         {
+                            types.Put(assign_ctx.expression(), result);
+                            Console.WriteLine(assign_ctx.GetText());
                             return type;
                         }
                     }
