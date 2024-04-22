@@ -47,14 +47,14 @@ namespace Lab3
             //}
 
             Thread.CurrentThread.CurrentCulture = new CultureInfo("en-US");
-            var fileName = "C:\\Users\\gabri\\Desktop\\Programming\\PJP\\C#\\Grammar\\Grammar\\text.txt";
+            var fileName = "C:\\Users\\gabri\\Desktop\\Programming\\PJP\\C#\\Grammar\\Grammar\\Input3.txt";
             Console.WriteLine("Parsing: " + fileName);
             var inputFile = new StreamReader(fileName);
             AntlrInputStream input = new AntlrInputStream(inputFile);
             TurboJanguageLexer lexer = new TurboJanguageLexer(input);
             CommonTokenStream tokens = new CommonTokenStream(lexer);
             TurboJanguageParser parser = new TurboJanguageParser(tokens);
-            InstructionSetListener instructionCreator = new();
+            
 
             parser.AddErrorListener(new VerboseListener());
 
@@ -69,15 +69,18 @@ namespace Lab3
 
                 if(!gListen.IsError())
                 {
+                    InstructionSetListener instructionCreator = new(gListen.types);
                     ParseTreeWalker walkerInstructions = new ParseTreeWalker();
                     
                     walkerInstructions.Walk(instructionCreator, tree);
-                    fileName = "TurboJanguageInstr.txt";
+                    fileName = "C:\\Users\\gabri\\Desktop\\Programming\\PJP\\C#\\Grammar\\Grammar\\TurboJanguageInstr.txt";
                     using var fileStream = File.Create(fileName);
                     using var outputFile = new StreamWriter(fileStream);
                     outputFile.Write(string.Join('\n', instructionCreator.Instructions));
                     instructionCreator.printStack();
                 }
+
+                Interpreter interpreter = new();
             }
         }
 	}
